@@ -1851,7 +1851,7 @@ var RTCMultiConnection = function(roomid, forceOptions) {
         var isGetUserMediaSupported = false;
         if (navigator.getUserMedia) {
             isGetUserMediaSupported = true;
-        } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        } else if (navigator.mediaDevices && (navigator.mediaDevices.getUserMedia || navigator.mediaDevices.getDisplayMedia)) {
             isGetUserMediaSupported = true;
         }
 
@@ -3532,7 +3532,7 @@ var RTCMultiConnection = function(roomid, forceOptions) {
             streaming(currentUserMediaRequest.streams[idInstance].stream, true);
         } else {
             var isBlackBerry = !!(/BB10|BlackBerry/i.test(navigator.userAgent || ''));
-            if (isBlackBerry || typeof navigator.mediaDevices === 'undefined' || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+            if (isBlackBerry || typeof navigator.mediaDevices === 'undefined' || (typeof navigator.mediaDevices.getUserMedia !== 'function' && typeof navigator.mediaDevices.getDisplayMedia !== 'function')) {
                 navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
                 navigator.getUserMedia(options.localMediaConstraints, function(stream) {
                     stream.streamid = stream.streamid || stream.id || getRandomString();
@@ -3584,15 +3584,25 @@ var RTCMultiConnection = function(roomid, forceOptions) {
                     }
                 };
             }
+            if (typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+                navigator.mediaDevices.getDisplayMedia(options.localMediaConstraints).then(function(stream) {
+                    stream.streamid = stream.streamid || stream.id || getRandomString();
+                    stream.idInstance = idInstance;
 
-            navigator.mediaDevices.getUserMedia(options.localMediaConstraints).then(function(stream) {
-                stream.streamid = stream.streamid || stream.id || getRandomString();
-                stream.idInstance = idInstance;
+                    streaming(stream);
+                }).catch(function(error) {
+                    options.onLocalMediaError(error, options.localMediaConstraints);
+                });            
+            } else {
+                navigator.mediaDevices.getUserMedia(options.localMediaConstraints).then(function(stream) {
+                    stream.streamid = stream.streamid || stream.id || getRandomString();
+                    stream.idInstance = idInstance;
 
-                streaming(stream);
-            }).catch(function(error) {
-                options.onLocalMediaError(error, options.localMediaConstraints);
-            });
+                    streaming(stream);
+                }).catch(function(error) {
+                    options.onLocalMediaError(error, options.localMediaConstraints);
+                });
+            }
         }
     }
 
