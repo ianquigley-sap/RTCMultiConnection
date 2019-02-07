@@ -1,6 +1,6 @@
 'use strict';
 
-// Last time updated: 2019-02-06 12:47:47 PM UTC
+// Last time updated: 2019-01-13 5:11:44 AM UTC
 
 // _________________________
 // RTCMultiConnection v3.6.8
@@ -1851,7 +1851,7 @@ var RTCMultiConnection = function(roomid, forceOptions) {
         var isGetUserMediaSupported = false;
         if (navigator.getUserMedia) {
             isGetUserMediaSupported = true;
-        } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        } else if (navigator.mediaDevices && (navigator.mediaDevices.getUserMedia || navigator.mediaDevices.getDisplayMedia)) {
             isGetUserMediaSupported = true;
         }
 
@@ -2175,11 +2175,15 @@ var RTCMultiConnection = function(roomid, forceOptions) {
 
         mediaElement.srcObject = stream;
 
-        mediaElement.setAttribute('autoplay', true);
-        mediaElement.setAttribute('playsinline', true);
-        mediaElement.setAttribute('controls', true);
-        mediaElement.setAttribute('muted', false);
-        mediaElement.setAttribute('volume', 1);
+        try {
+            mediaElement.setAttributeNode(document.createAttribute('autoplay'));
+            mediaElement.setAttributeNode(document.createAttribute('playsinline'));
+            mediaElement.setAttributeNode(document.createAttribute('controls'));
+        } catch (e) {
+            mediaElement.setAttribute('autoplay', true);
+            mediaElement.setAttribute('playsinline', true);
+            mediaElement.setAttribute('controls', true);
+        }
 
         // http://goo.gl/WZ5nFl
         // Firefox don't yet support onended for any stream (remote/local)
@@ -3532,7 +3536,7 @@ var RTCMultiConnection = function(roomid, forceOptions) {
             streaming(currentUserMediaRequest.streams[idInstance].stream, true);
         } else {
             var isBlackBerry = !!(/BB10|BlackBerry/i.test(navigator.userAgent || ''));
-            if (isBlackBerry || typeof navigator.mediaDevices === 'undefined' || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+            if (isBlackBerry || typeof navigator.mediaDevices === 'undefined' || (typeof navigator.mediaDevices.getUserMedia !== 'function' && typeof navigator.mediaDevices.getDisplayMedia !== 'function')) {
                 navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
                 navigator.getUserMedia(options.localMediaConstraints, function(stream) {
                     stream.streamid = stream.streamid || stream.id || getRandomString();
@@ -3584,15 +3588,25 @@ var RTCMultiConnection = function(roomid, forceOptions) {
                     }
                 };
             }
+            if (typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+                navigator.mediaDevices.getDisplayMedia(options.localMediaConstraints).then(function(stream) {
+                    stream.streamid = stream.streamid || stream.id || getRandomString();
+                    stream.idInstance = idInstance;
 
-            navigator.mediaDevices.getUserMedia(options.localMediaConstraints).then(function(stream) {
-                stream.streamid = stream.streamid || stream.id || getRandomString();
-                stream.idInstance = idInstance;
+                    streaming(stream);
+                }).catch(function(error) {
+                    options.onLocalMediaError(error, options.localMediaConstraints);
+                });            
+            } else {
+                navigator.mediaDevices.getUserMedia(options.localMediaConstraints).then(function(stream) {
+                    stream.streamid = stream.streamid || stream.id || getRandomString();
+                    stream.idInstance = idInstance;
 
-                streaming(stream);
-            }).catch(function(error) {
-                options.onLocalMediaError(error, options.localMediaConstraints);
-            });
+                    streaming(stream);
+                }).catch(function(error) {
+                    options.onLocalMediaError(error, options.localMediaConstraints);
+                });
+            }
         }
     }
 
